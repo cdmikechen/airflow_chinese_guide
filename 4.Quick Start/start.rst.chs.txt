@@ -1,0 +1,46 @@
+快速开始
+-----------
+
+安装Airflow的过程是简单而快捷的
+
+.. code-block:: bash
+
+    # airflow需要一个基准路径，~/airflow是其默认的路径,
+    # 但是你也可以选择别的路径作为跟目录
+    # (非强制性)
+    export AIRFLOW_HOME=~/airflow
+
+    # 使用pip进行安装
+    pip install airflow
+
+    # 初始化数据库
+    airflow initdb
+
+    # 启动服务器，默认的端口是8080
+    airflow webserver -p 8080
+
+在运行这些命令以前，Airflow会根据``$AIRFLOW_HOME``创建其文件夹，
+同时配置一个"airflow.cfg"文件，使你能快速地启动程序。
+你可以使用``$AIRFLOW_HOME/airflow.cfg``查看配置，
+或者在``Admin->Configuration``的目录下查看。
+如果启动系统后，服务器的PID文件会被存储在``$AIRFLOW_HOME/airflow-webserver.pid``下
+或者在``/run/airflow/webserver.pid``里面。
+
+最初，Airflow会使用sqlite作为它的数据库，
+因为使用这个数据库后端不需要分布式，所以很快就能实现。
+它使用``SequentialExecutor``进行工作，这种程序只会按顺序运行任务实例。
+虽然这些功能都非常有限，但是它允许你快速地启动并运行UI和命令行以执行程序。
+
+这里有几个命令可以启动几个任务实例。
+当你运行下面的命令时，你应该能够看到``example1``的DAG中作业执行和更改的状态。
+
+.. code-block:: bash
+
+    # 执行你的第一个任务实例
+    airflow run example_bash_operator runme_0 2015-01-01
+    # 执行2天的backfill（回填）
+    airflow backfill example_bash_operator -s 2015-01-01 -e 2015-01-02
+
+接下来是什么?
+''''''''''''
+从这开始, 你可以到达 :doc:`指导` 章节查看更多的例子，或者如果你已经准备好自己动手了，可以去去 :doc:`设置` 章节。

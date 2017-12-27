@@ -1,0 +1,47 @@
+项目
+=======
+
+历史
+-------
+
+Airflow是2014年10月由Maxime Beauchemin在Airbnb开始创建的。
+它从很早的第一次提交开始就是开源的，并且Airbnb在2015年6月就发布在Airbnb的GitHub下面。
+
+该项目于2016年3月加入Apache软件协会的孵化项目。
+
+
+贡献者
+----------
+
+- @mistercrunch (Maxime "Max" Beauchemin)
+- @r39132 (Siddharth "Sid" Anand)
+- @criccomini (Chris Riccomini)
+- @bolkedebruin (Bolke de Bruin)
+- @artwr (Arthur Wiedmer)
+- @jlowin (Jeremiah Lowin)
+- @patrickleotardif (Patrick Leo Tardif)
+- @aoen (Dan Davydov)
+- @syvineckruyk (Steven Yvinec-Kruyk)
+
+如果想了解更多的贡献者，可以查看 `Airflow在Github上面的贡献者页面:
+<https://github.com/apache/incubator-airflow/graphs/contributors>`_
+
+
+资源 & 链接
+-----------------
+
+* `Airflow的官方文档 <http://airflow.apache.org/>`_
+* 邮箱列表 (可以给
+  ``dev-subscribe@airflow.incubator.apache.org`` 或者
+  ``commits-subscribe@airflow.incubator.apache.org``
+  这两个邮箱发邮件)
+* `在Apache's Jira上提问题 <https://issues.apache.org/jira/browse/AIRFLOW>`_
+* `Gitter的交流频道 <https://gitter.im/airbnb/airflow>`_
+* `有关Airflow更多的资源和链接可以查看Wiki <https://cwiki.apache.org/confluence/display/AIRFLOW/Airflow+Links>`_
+
+
+
+路线图
+-------
+
+可以选择`wiki <https://cwiki.apache.org/confluence/display/AIRFLOW/Airflow+Home>`_ 查看更多的信息
