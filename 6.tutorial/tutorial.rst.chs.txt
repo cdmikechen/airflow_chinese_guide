@@ -1,4 +1,4 @@
-指南
+指导
 ================
 
 本教程将介绍一些Airflow的基本概念、对象以及它们在编写第一个pipline时的用法。
@@ -67,45 +67,41 @@
     t3.set_upstream(t1)
 
 
-It's a DAG definition file
+这就是一个DAG的定义文件
 --------------------------
 
-One thing to wrap your head around (it may not be very intuitive for everyone
-at first) is that this Airflow Python script is really
-just a configuration file specifying the DAG's structure as code.
-The actual tasks defined here will run in a different context from
-the context of this script. Different tasks run on different workers
-at different points in time, which means that this script cannot be used
-to cross communicate between tasks. Note that for this
-purpose we have a more advanced feature called ``XCom``.
+有一件事需要考虑(一开始可能不是很直观)，
+这个Airflow的Python脚本实际上只是一个指定DAG结构作为代码的配置文件。
+实际上这个定义的任务会运行在另一个上下文引用之中。
+不同的任务在不同的时间点运行在不同的worker上面，
+这意味着脚本在任务之间无法做通信。
+注意到这个以后，我们为了达到目的而引入了另一个更高级的特定叫做 ``XCom``。
 
-People sometimes think of the DAG definition file as a place where they
-can do some actual data processing - that is not the case at all!
-The script's purpose is to define a DAG object. It needs to evaluate
-quickly (seconds, not minutes) since the scheduler will execute it
-periodically to reflect the changes if any.
+人们有时会把DAG定义文件看作一个可以进行实际数据处理的地方——但实际上根本不是这样!
+这些脚本的目的是为了定义DAG对象。
+
+它需要快速地进行响应和评估任务(执行的频度不是分钟级别的，而是秒级的)，
+因为调度程序将周期性地执行它以反映任何的更改。
 
 
-Importing Modules
+引入模组
 -----------------
 
-An Airflow pipeline is just a Python script that happens to define an
-Airflow DAG object. Let's start by importing the libraries we will need.
+一个Airflow的pipeline就是一个Python脚本，这个脚本的作用是为了定义Airflow的DAG对象。
+让我们开始引入定义所需要的库。
 
 .. code:: python
 
-    # The DAG object; we'll need this to instantiate a DAG
+    # DAG对象; 我们需要它去实例化一个DAG
     from airflow import DAG
 
-    # Operators; we need this to operate!
+    # Operators; 我们需要利用这个对象去执行流程!
     from airflow.operators.bash_operator import BashOperator
 
-Default Arguments
+默认参数
 -----------------
-We're about to create a DAG and some tasks, and we have the choice to
-explicitly pass a set of arguments to each task's constructor
-(which would become redundant), or (better!) we can define a dictionary
-of default parameters that we can use when creating tasks.
+我们将创建一个DAG和一些任务，我们可以选择将一组参数显式传递给每个任务的构造函数(这可能会变得有些冗余)，
+或者(最好地)我们可以定义一个默认参数的字典，我们可以在创建任务时使用它。
 
 .. code:: python
 
@@ -126,32 +122,30 @@ of default parameters that we can use when creating tasks.
         # 'end_date': datetime(2016, 1, 1),
     }
 
-For more information about the BaseOperator's parameters and what they do,
-refer to the :py:class:``airflow.models.BaseOperator`` documentation.
+如果想知道有关BaseOperator's等多的关于变量和具体的执行,
+可以去查看 :py:class:``airflow.models.BaseOperator`` 的文档.
 
-Also, note that you could easily define different sets of arguments that
-would serve different purposes. An example of that would be to have
-different settings between a production and development environment.
+另外，请注意，您可以很容易地定义不同的参数集，这些参数将提供不同的作用。
+其中一个例子就是您可以在生产和开发环境之间进行不同的配置。
 
 
-Instantiate a DAG
+实例化一个DAG
 -----------------
 
-We'll need a DAG object to nest our tasks into. Here we pass a string
-that defines the ``dag_id``, which serves as a unique identifier for your DAG.
-We also pass the default argument dictionary that we just defined and
-define a ``schedule_interval`` of 1 day for the DAG.
+我们需要一个DAG对象把我们的任务放进去。
+这里我们传递了一个定义为``dag_id``的字符串，它将作为您的DAG的唯一标识符。
+我们还传递了我们刚刚定义的默认参数字典，同时也为DAG定义了一个按照一天调度一次的``schedule_interval``。
 
 .. code:: python
 
     dag = DAG(
         'tutorial', default_args=default_args, schedule_interval=timedelta(1))
 
-Tasks
+任务
 -----
-Tasks are generated when instantiating operator objects. An object
-instantiated from an operator is called a constructor. The first argument
-``task_id`` acts as a unique identifier for the task.
+当实例化operator对象的时候，会生成任务。
+从一个operator实例化出来的对象的过程，被称为一个构造方法。
+第一个参数``task_id``是唯一识别一个任务的方式。
 
 .. code:: python
 
@@ -166,22 +160,20 @@ instantiated from an operator is called a constructor. The first argument
         retries=3,
         dag=dag)
 
-Notice how we pass a mix of operator specific arguments (``bash_command``) and
-an argument common to all operators (``retries``) inherited
-from BaseOperator to the operator's constructor. This is simpler than
-passing every argument for every constructor call. Also, notice that in
-the second task we override the ``retries`` parameter with ``3``.
+注意到我们传递了一个BaseOperator特有的参数(``bash_command``)
+和所有的operator构造函数中都会有的一个参数(``retries``)。
+这比为每个构造函数传递所有的参数要简单很多多。
+同时，也注意到在第二个任务里面我们用 ``3`` 覆盖了 ``retries`` 这个参数。
 
-The precedence rules for a task are as follows:
+一个任务的优先级规则如下:
 
-1.  Explicitly passed arguments
-2.  Values that exist in the ``default_args`` dictionary
-3.  The operator's default value, if one exists
+1.  有明确传递参数的
+2.  在 ``default_args`` 字典存在的并被赋值了的
+3.  operator的默认值
 
-A task must include or inherit the arguments ``task_id`` and ``owner``,
-otherwise Airflow will raise an exception.
+一个任务必须包含并且集成参数 ``task_id`` 和 ``owner``，否则Airflow会报错。
 
-Templating with Jinja
+利用Jinja作为模板
 ---------------------
 Airflow leverages the power of
 `Jinja Templating <http://jinja.pocoo.org/docs/dev/>`_  and provides
@@ -211,31 +203,26 @@ point to the most common template variable: ``{{ ds }}``.
         params={'my_param': 'Parameter I passed in'},
         dag=dag)
 
-Notice that the ``templated_command`` contains code logic in ``{% %}`` blocks,
-references parameters like ``{{ ds }}``, calls a function as in
-``{{ macros.ds_add(ds, 7)}}``, and references a user-defined parameter
-in ``{{ params.my_param }}``.
+注意到 ``templated_command`` 在 ``{% %}`` 块内包含了一段代码逻辑，
+引用了变量例如 ``{{ ds }}`` ，在 ``{{ macros.ds_add(ds, 7)}}`` 中调用了一个函数，
+在 ``{{ params.my_param }}`` 中引用了一个用户定义的变了。
 
-The ``params`` hook in ``BaseOperator`` allows you to pass a dictionary of
-parameters and/or objects to your templates. Please take the time
-to understand how the parameter ``my_param`` makes it through to the template.
+在 ``BaseOperator`` 中使用的 ``params`` hook允许您将参数和/或对象的字典传递给您的模板。
+请花一些时间去了解 ``my_param`` 这个参数是如何在模板中被使用的。
 
-Files can also be passed to the ``bash_command`` argument, like
-``bash_command='templated_command.sh'``, where the file location is relative to
-the directory containing the pipeline file (``tutorial.py`` in this case). This
-may be desirable for many reasons, like separating your script's logic and
-pipeline code, allowing for proper code highlighting in files composed in
-different languages, and general flexibility in structuring pipelines. It is
-also possible to define your ``template_searchpath`` as pointing to any folder
-locations in the DAG constructor call.
+文件也可以当做 ``bash_command`` 的参数进行传递，
+例如``bash_command='templated_command.sh'``，
+不过这个文件的位置要在pipeline文件的目录内（在这种情况下是``tutorial.py``这个文件）。
+这可能是出于多种原因，比如将脚本的逻辑和pipeline代码分隔开，
+允许在不同语言的文件中使用适当的代码突出显示，以及灵活地构建pipeline。
+还可以定义您的 ``template_searchpath`` ，以指向DAG构造函数调用中的任何文件夹位置。
 
-For more information on the variables and macros that can be referenced
-in templates, make sure to read through the :ref:`macros` section
+在模板中可能引用的变量和宏的更多信息，请确保阅读 :ref:`macros` 宏部分。
 
-Setting up Dependencies
+设置依赖关系
 -----------------------
-We have two simple tasks that do not depend on each other. Here's a few ways
-you can define dependencies between them:
+我们有两个不互相依赖的简单的任务。
+这里有几种方法可以定义它们之间的依赖关系：
 
 .. code:: python
 
@@ -252,14 +239,12 @@ you can define dependencies between them:
     # dag.set_dependency('print_date', 'sleep')
     # dag.set_dependency('print_date', 'templated')
 
-Note that when executing your script, Airflow will raise exceptions when
-it finds cycles in your DAG or when a dependency is referenced more
-than once.
+请注意当执行您的脚本的时候，如果您的脚本里面构成了一个循环或者当一个依赖被引用了一次以上，Airflow会报错。
 
-Recap
+回顾
 -----
-Alright, so we have a pretty basic DAG. At this point your code should look
-something like this:
+好了，现在我们有了一个很好的基础DAG。
+这时候您的代码应该看起来是如下的样子：
 
 .. code:: python
 
@@ -319,109 +304,103 @@ something like this:
     t2.set_upstream(t1)
     t3.set_upstream(t1)
 
-Testing
+测试
 --------
 
-Running the Script
+执行脚本
 ''''''''''''''''''
 
-Time to run some tests. First let's make sure that the pipeline
-parses. Let's assume we're saving the code from the previous step in
-``tutorial.py`` in the DAGs folder referenced in your ``airflow.cfg``.
-The default location for your DAGs is ``~/airflow/dags``.
+该是运行一些测试用例的时候了。
+首先让我们确保pipeline能够被解析。
+让我们保证我们已经将前面的几个步骤的代码保存在 ``airflow.cfg`` 设置的DAGs文件夹中的 ``tutorial.py`` 内。
+您默认的DAGs的存储位置在 ``~/airflow/dags`` 。
 
 .. code-block:: bash
 
     python ~/airflow/dags/tutorial.py
 
-If the script does not raise an exception it means that you haven't done
-anything horribly wrong, and that your Airflow environment is somewhat
-sound.
+如果这个脚本没有报错，那就证明您的代码和您的Airflow环境没有特别大的问题。
 
-Command Line Metadata Validation
+命令行元数据验证
 '''''''''''''''''''''''''''''''''
-Let's run a few commands to validate this script further.
+让我们运行一些命令来进一步验证这个脚本。
 
 .. code-block:: bash
 
-    # print the list of active DAGs
+    # 打印出目前活跃的DAG列表
     airflow list_dags
 
-    # prints the list of tasks the "tutorial" dag_id
+    # 打印出使用 "tutorial" 作为dag_id的任务列表
     airflow list_tasks tutorial
 
-    # prints the hierarchy of tasks in the tutorial DAG
+    # 打印出在tutorial的DAG中任务的层次结构
     airflow list_tasks tutorial --tree
 
 
-Testing
+测试
 '''''''
-Let's test by running the actual task instances on a specific date. The
-date specified in this context is an ``execution_date``, which simulates the
-scheduler running your task or dag at a specific date + time:
+让我们通过指定一个日期并运行现有的任务实例来进行测试。
+指定的日期利用 ``execution_date`` 来进行定义，它会模拟在特定的日期和时间运行您的任务或者dag：
 
 .. code-block:: bash
 
     # command layout: command subcommand dag_id task_id date
 
-    # testing print_date
+    # 测试 print_date
     airflow test tutorial print_date 2015-06-01
 
-    # testing sleep
+    # 测试 sleep
     airflow test tutorial sleep 2015-06-01
 
-Now remember what we did with templating earlier? See how this template
-gets rendered and executed by running this command:
+现在还记得我们早些时候利用模板都做了什么？
+让我们看看通过执行这个命令以后，模板都呈献了些什么：
 
 .. code-block:: bash
 
-    # testing templated
+    # 测试 templated
     airflow test tutorial templated 2015-06-01
 
-This should result in displaying a verbose log of events and ultimately
-running your bash command and printing the result.
+这会在一个详细的事件日志上显示结果，并将运行bash命令的结果并打印出来。
 
-Note that the ``airflow test`` command runs task instances locally, outputs
-their log to stdout (on screen), doesn't bother with dependencies, and
-doesn't communicate state (running, success, failed, ...) to the database.
-It simply allows testing a single task instance.
+注意到 ``airflow test`` 的命令在本地运行了任务实例，并在标准输出（屏幕）上显示这些日志结果，
+不去在意依赖关系，并且不将任何状态信息写入数据库中（运行，成功，失败等）。
+它只允许测试单个任务实例。
 
-Backfill
+回填
 ''''''''
-Everything looks like it's running fine so let's run a backfill.
-``backfill`` will respect your dependencies, emit logs into files and talk to
-the database to record status. If you do have a webserver up, you'll be able
-to track the progress. ``airflow webserver`` will start a web server if you
-are interested in tracking the progress visually as your backfill progresses.
+从各种情况上来看它运行的不错，
+以，让我们来运行一个回填（原文叫backfill，我也不知道如何翻译，所以暂时叫做回填了）。
+``回填`` 将考虑到您的依赖项，将日志发送到文件中，并与数据库进行通信从而记录期间的状态。
+如果您启动了一个web服务，您可以跟踪它的进度。
+如果您有兴趣在你的回填过程中，在显示屏上跟踪这些进度，
+那么您就可以利用 ``airflow webserver`` 启动一个web服务。
 
-Note that if you use ``depends_on_past=True``, individual task instances
-will depend on the success of the preceding task instance, except for the
-start_date specified itself, for which this dependency is disregarded.
+请注意如果您使用 ``depends_on_past=True``，单独的任务实例依赖于前一个任务实例的成功，
+除非它自己定义了start_date，这个依赖项才会被忽略。
 
-The date range in this context is a ``start_date`` and optionally an ``end_date``,
-which are used to populate the run schedule with task instances from this dag.
+在本文中的日期范围是 ``start_date`` 和一个可能的 ``end_date`` 来定义的，
+这两个值在dag中的任务实例里被用来填充运行调度。
 
 .. code-block:: bash
 
-    # optional, start a web server in debug mode in the background
+    # 当然我们也可以选择使用一个debug模式在后台启动一个web服务
     # airflow webserver --debug &
 
-    # start your backfill on a date range
+    # 在一个时间段内启动一个backfill
     airflow backfill tutorial -s 2015-06-01 -e 2015-06-07
 
-What's Next?
+接下来做什么?
 -------------
-That's it, you've written, tested and backfilled your very first Airflow
-pipeline. Merging your code into a code repository that has a master scheduler
-running against it should get it to get triggered and run every day.
+就是这样，您已经编写、测试并且回填了您的第一个初始的Airflow的pipeline。
+将您的代码合并到一个有调度管理器的代码库中，这样可以启动任务并在每天执行它。
 
-Here's a few things you might want to do next:
+如下是一些您在接下来的部分要做的一些事情：
 
-* Take an in-depth tour of the UI - click all the things!
-* Keep reading the docs! Especially the sections on:
+* 对用户界面进行深入的访问——点击所有的东西！
+* 保持阅读文档! 特别是如下的部分:
 
-    * Command line interface
-    * Operators
-    * Macros
+    * 命令行接口
+    * 任务执行体
+    * 宏命令
 
-* Write your first pipeline!
+* 写下你第一个pipeline吧！
