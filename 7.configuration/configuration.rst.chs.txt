@@ -1,0 +1,291 @@
+配置
+-------------
+
+在 :doc:`开始` 章节里面做一些基本的操作并启动一个简单的程序是很容易的；
+但是建立一个生产级别的环境需要更多的工作！
+
+.. _setting-options:
+
+设置配置选项
+'''''''''''''''''''''''''''''
+
+当您第一次运行Airflow的时候，它会在 ``$AIRFLOW_HOME`` (默认是 ``~/airflow``)的文件夹下面
+创建一个名叫 ``airflow.cfg``的文件。
+这个文件包含Airflow的配置，并且你可以通过编辑它来修改任何的设置。
+您也可以利用如下的格式化方式设置环境变量：
+``$AIRFLOW__{SECTION}__{KEY}` （注意那个双下划线）
+
+例如，数据库连接可以在 ``airflow.cfg`` 设置成如下的样子：
+
+.. code-block:: bash
+
+    [core]
+    sql_alchemy_conn = my_conn_string
+
+或者通过创建一个相应的环境变量：
+
+.. code-block:: bash
+
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN=my_conn_string
+
+您也可以通过如下的 ``_cmd`` 关键字在运行时候得到连接的字符串
+
+.. code-block:: bash
+
+    [core]
+    sql_alchemy_conn_cmd = bash_command_to_run
+
+但是只有3种这样的配置元素 sql_alchemy_conn，broker_url 和 celery_result_backend 可以作为一个命令。
+
+这背后的想法是不要在纯文本文件中存储密码。
+执行的优先顺序如下 -
+
+1. 环境变量
+2. 在airflow.cfg进行配置
+3. 在airflow.cfg设置命令
+4. 默认
+
+启动一个后端处理
+Setting up a Backend
+''''''''''''''''''''
+如果你想要一个真正的Airflow的测试驱动，你应该考虑建立一个真正的后台数据库，并切换到localexecutor。
+
+由于Airflow使用了强大的SQLAlchemy库来进行构建，并利用它来进行元数据的交互，
+因此您能够使用任何数据库后台支持为SQLAlchemy的后端。
+我们推荐使用 **MySQL** 或者是 **Postgres** 。
+
+.. 注意:: 如果您决定使用 **Postgres** ，那么我们建议使用 ``psycopg2`` 驱动，
+   并在SqlAlchemy的连接字符中指定它。
+   同时要注意到因为SqlAlchemy在Postgres的连接URI中不能匹配一个指定的数据库对象，
+   您可能需要利用一个类似 ``ALTER ROLE username SET search_path = airflow, foobar;``
+   的命令来给您的系统角色设置一个默认的数据库对象。
+
+一旦您已经设置好了连接Airflow所用的数据库，
+您就会需要在 ``$AIRFLOW_HOME/airflow.cfg`` 的配置文件中指明SqlAlchemy的连接字符串。
+您需要在之后也修改 "executor" 的配置为使用 "LocalExecutor"，
+这是一个可以在局部并行处理任务实例的执行器。
+
+.. code-block:: bash
+
+    # 初始化数据库
+    airflow initdb
+
+连接信息
+Connections
+'''''''''''
+Airflow需要知道如何连接您的环境。
+例如连接到其他系统或者服务的hostname，port，login或者passwords都可以在图形界面里面
+的 ``Admin->Connection`` 下进行设置。
+您写的pipeline代码会涉及连接对象中的'conn_id'。
+
+.. image:: img/connections.png
+
+默认地，Airflow会利用元数据库在文本中保存连接的密码。
+``crypto`` 包非常推荐进行安装。
+``crypto`` 包也要求你的操作系统安装libffi-dev。
+
+如果 ``crypto`` 包最初就没有被安装，您仍然可以通过以下步骤启用连接加密：
+
+1. 安装crypto包 ``pip install apache-airflow[crypto]``
+2. 生成fernet_key，利用下面的代码片段。fernet_key必须是一个base64-encoded的32-byte的key。
+
+.. code:: python
+
+    from cryptography.fernet import Fernet
+    fernet_key= Fernet.generate_key()
+    print(fernet_key) # 您的fernet_key，让他保存在安全的地方！
+
+3. 将 ``airflow.cfg`` 内的fernet_key替换为步骤2中的值。
+   另外，您可以将您的fernet_key存储在您系统的环境变量里面。
+   在这种情况下您不需要改变 ``airflow.cfg`` ，
+   因为AirFlow会使用环境变量来替换 ``airflow.cfg`` 中的值。
+
+.. code-block:: bash
+
+  # 注意双下划线
+  EXPORT AIRFLOW__CORE__FERNET_KEY = your_fernet_key
+
+4. 重启Airflow的web服务。
+5. 对于现有的（您已经在 ``airflow[crypto]`` 安装前定义好并创建了一个Fernet key的）连接，
+   您需要在admin的UI的连接管理下面打开每个连接配置，重新输入密码并保存它。
+
+在Airflow的pipelines连接可以利用环境变量创建。
+环境变量需要有一个 ``AIRFLOW_CONN_`` 的前缀，这样就可以在一个连接的URI中正确地解析出Airflow的变量值。
+请查看 :doc:`concepts` 文档进而获取环境变量和连接更多的信息。
+
+扩展为Celery
+'''''''''''''''''''''''
+``CeleryExecutor`` 是一种您可以扩展复数个worker的方式。
+利用这种方式，您需要给Celery设置一个媒介(**RabbitMQ**, **Redis**, ...)并且改变您 ``airflow.cfg``
+中的设置，将执行器变量指向 ``CeleryExecutor`` 并且提供相关的Celery设置。
+
+想知道更多更详尽的有关配置一个Celery的broker的信息，您最好去查看
+`Celery的主题文档 <http://docs.celeryproject.org/en/latest/getting-started/brokers/index.html>`_
+
+以下是您的worker的一些必要的要求：
+
+- ``airflow`` 需要安装，并且CLI需要在安装目录下面
+- Airflow的相关设置需要在集群上保持一致
+- 在worker上跑着的Operator需要他们的依赖也在同一个上下文中。
+  例如，如果您使用 `HiveOperator`` ，那么hive的CLI就需要安装在那个节点，
+  或者您使用 ``MySqlOperator`` ，那么所需要的Python库也需要在 ``PYTHONPATH`` 中可用。
+- worker需要有访问 ``DAGS_FOLDER`` 的权限，您需要利用自己的方法同步文件系统。
+  一个通常的步骤是利用Git的资源库存储您的DAGS_FOLDER并且在机器间进行同步，
+  您可以使用Chef，Puppet，Ansible，或者其他在您环境下可以使用的配置工具。
+  如果所有的节点都有一个公共挂载点，那么您共享在那里的pipelines文件也应该可以工作。
+
+
+启动一个worker，您需要启动Airflow并且启动一个worker的子命令。
+
+.. code-block:: bash
+
+    airflow worker
+
+您的worker在他们启动后会立刻开始执行任务。
+
+同时注意到您也可以运行"Celery Flower"，一个基于Celery上的web UI，它可以显示您worker的工作状态。
+您可以使用快捷命令 ``airflow flower`` 来启动一个Flower的web服务器。
+
+
+扩展一个Dask
+'''''''''''''''''''''
+``DaskExecutor`` 允许您在一个Dask的分布式云系统上面去执行一个Airflow任务
+
+Dask的云系统可以被运行在一个单机或者远程网络上面。
+更多的内容，可以查看 `Distributed documentation <https://distributed.readthedocs.io/>`_.
+
+为了创建一个云环境，首先需要启动一个Scheduler：
+
+.. code-block:: bash
+
+    # 一个本地云的默认设置
+    DASK_HOST=127.0.0.1
+    DASK_PORT=8786
+
+    dask-scheduler --host $DASK_HOST --port $DASK_PORT
+
+接下来至少在一个可以连接host的任意机器上启动一个Worker。
+
+.. code-block:: bash
+
+    dask-worker $DASK_HOST:$DASK_PORT
+
+编辑您的 ``airflow.cfg`` 去设置您的executor为 ``DaskExecutor``
+并且在 ``[dask]`` 的选项中提供Dask执行器的地址。
+
+请注意：
+
+- 每一个Dask的worker必须可以引用Airflow和其他的依赖。
+- Dask不支持队列。如果一个Airflow的任务是基于队列的，一个警告会被提升但是任务还是会被注册到云上面。
+
+日志
+''''
+用户们可以在 ``airflow.cfg`` 内定制一个日志文件夹。
+默认情况下，它在 ``AIRFLOW_HOME`` 的文件夹下面。
+
+除此之外，用户们可以在一个云存储的远程地址上来存储日志和日志备份。
+在这个时候，Amazon S3 和 Google Cloud Storage 可以被支持。
+如果要开启这个功能， ``airflow.cfg`` 的配置必须如以下的例子中所示：
+
+.. code-block:: bash
+
+    [core]
+    # Airflow can store logs remotely in AWS S3 or Google Cloud Storage. Users
+    # must supply a remote location URL (starting with either 's3://...' or
+    # 'gs://...') and an Airflow connection id that provides access to the storage
+    # location.
+    remote_base_log_folder = s3://my-bucket/path/to/logs
+    remote_log_conn_id = MyS3Conn
+    # Use server-side encryption for logs stored in S3
+    encrypt_s3_logs = False
+
+远程日志用一个已经存在的Airflow连接来读/写日志。
+如果您没有一个正确的连接，这将会失败。
+在上面的例子中，Airflow会尝试使用 ``S3Hook('MyS3Conn')``。
+
+在Airflow的Web界面上，本地日志优先于远程日志。
+如果本地日志不能被找到或者方位，则会使用远程日志。
+需要注意到，日志只有在一个任务完成的时候（包括失败）才能被发送到远程存储上面。
+换句话说，远程日志对于运行中的任务是不可用的。
+日志存储的文件目录类似 ``{dag_id}/{task_id}/{execution_date}/{try_number}.log`` 这样。
+
+扩展在Mesos上面（社区贡献版）
+''''''''''''''''''''''''''''''''''''''''''''
+``MesosExecutor`` 允许您在一个Mesos的集群上面调度airflow的任务。
+为了让它工作，您需要一个正在运行的mesos集群环境并且您必须执行如下的步骤-
+
+1. 在一台机器上安装airflow，并且在上面运行web服务和调度器，让我们暂且称之为"Airflow server"。
+2. 在Airflow server上面，从`mesos downloads <http://open.mesosphere.com/downloads/mesos/>`_.
+  上面安装mesos的python包。
+3. 在Airflow server上面，使用一个可以被mesos子节点机器访问的数据库（比如mysql）并且添加到 ``airflow.cfg`` 的配置里。
+4. 改变您的 ``airflow.cfg`` 里面executor的参数并指向 `MesosExecutor` 并且提供相关的Mesos设置。
+5. 在所有mesos的子节点上面，安装airflow。从Airflow server拷贝 ``airflow.cfg``到子节点上面（这样就可以使用相同的sql alchemy连接）。
+6. 在所有mesos的子节点上面，执行如下的命令：
+
+.. code-block:: bash
+
+    airflow serve_logs
+
+7. 在Airflow server上面，在mesos上启动执行/调度DAGs，执行：
+
+.. code-block:: bash
+
+    airflow scheduler -p
+
+注意：我们需要 -p 参数去序列化DAGs。
+
+您现在可以在mesos的界面上面查看airflow的框架和同步任务。
+airflow的任务日志也可以在airflow的界面上如同以往一样看到。
+
+更多关于mesos的信息，可以去查看`mesos documentation <http://mesos.apache.org/documentation/latest/>`_.
+更多 `MesosExecutor` 上面的疑问和bug，可以联系`@kapil-malik <https://github.com/kapil-malik>`_.
+
+
+集成系统
+''''''''''''''''''''''''
+Airflow可以扩展在系统守护进程的系统下面。
+这样可以更简单地监控您的守护进程，让系统的守护进程在每个进程之间照顾并在它失败的时候进行重启。
+在 ``scripts/systemd`` 文件夹内，您可以找到已经在红帽系统上经过测试的单元文件。
+您可以将他们复制到 ``/usr/lib/systemd/system`` 下面。
+假定Airflow运行在 ``airflow:airflow`` 用户组下面。
+如果不是的话（或者如果您运行的系统不是在红帽上面的）您可能需要调整这些单元文件。
+
+环境配置来源自 ``/etc/sysconfig/airflow``。
+我们提供了一个示例文件。
+确保当您运行调度器的时候，在这个文件中指定了 ``SCHEDULER_RUNS`` 变量。
+您也可以在这里定义，例如，``AIRFLOW_HOME`` 或者 ``AIRFLOW_CONFIG``。
+
+Integration with upstart
+''''''''''''''''''''''''
+Airflow can integrate with upstart based systems. Upstart automatically starts all airflow services for which you
+have a corresponding ``*.conf`` file in ``/etc/init`` upon system boot. On failure, upstart automatically restarts
+the process (until it reaches re-spawn limit set in a ``*.conf`` file).
+
+You can find sample upstart job files in the ``scripts/upstart`` directory. These files have been tested on
+Ubuntu 14.04 LTS. You may have to adjust ``start on`` and ``stop on`` stanzas to make it work on other upstart
+systems. Some of the possible options are listed in ``scripts/upstart/README``.
+
+Modify ``*.conf`` files as needed and copy to ``/etc/init`` directory. It is assumed that airflow will run
+under ``airflow:airflow``. Change ``setuid`` and ``setgid`` in ``*.conf`` files if you use other user/group
+
+You can use ``initctl`` to manually start, stop, view status of the airflow process that has been
+integrated with upstart
+
+.. code-block:: bash
+
+    initctl airflow-webserver status
+
+测试模组
+'''''''''
+Airflow有一套固定的“test mode”配置选项。
+您可以通过 ``airflow.configuration.load_test_config()`` （注意，这些操作都不可逆！）在任何时候加载他们
+但是，一些选项（例如DAG_FOLDER）是在您调用load_test_config()之前就已经加载好了的。
+为了能更好地加载测试配置，需要在airflow.cfg中配置test_mode：
+
+.. code-block:: bash
+
+  [tests]
+  unit_test_mode = True
+
+由于Airflow的自动环境变量机制（可以查看 :ref:`setting-options`），
+您也可以设置环境变量 `AIRFLOW__CORE__UNIT_TEST_MODE`` 从而临时地覆盖airflow.cfg的内容。
